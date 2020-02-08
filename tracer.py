@@ -3,6 +3,8 @@ from main import Ui_MainWindow
 import sys
 import socket
 import pickle
+import random
+import pyautogui
 from threading import Thread
 from pynput.mouse import Controller, Button
 
@@ -19,6 +21,36 @@ class Tracer(QtWidgets.QMainWindow, Ui_MainWindow):
 
         conn_thread = Thread(target=self.connect, daemon=True)
         conn_thread.start()
+
+        ## new config for the video streaming
+        self.pixmap = QtGui.QPixmap()
+        self.label = QtWidgets.QLabel(self)
+        self.label.resize(self.width(), self.height())
+        self.setGeometry(QtCore.QRect(pyautogui.size()[0] // 4, pyautogui.size()[1] // 4, 800, 450))
+        self.setFixedSize(self.width(), self.height())
+        self.setWindowTitle("[SERVER] Remote Desktop: " + str(random.randint(99999, 999999)))
+        self.start = Thread(target=self.ChangeImage, daemon=True)
+        self.start.start()
+
+    def ChangeImage(self):
+        print('waiting for connection for video streaming')
+        img_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        img_sock.bind(('', 9091))
+        img_sock.listen(10)
+        conn, addr = img_sock.accept()
+        print('connected for the video')
+
+        try:
+            print("[SERVER]: CONNECTED: {0}!".format(addr[0]))
+            while True:
+                img_bytes = conn.recv(9999999)
+                self.pixmap.loadFromData(img_bytes)
+                self.label.setScaledContents(True)
+                self.label.resize(self.width(), self.height())
+                self.label.setPixmap(self.pixmap)
+        except ConnectionResetError:
+            QtWidgets.QMessageBox.about(self, "ERROR", "[SERVER]: The remote host forcibly terminated the existing connection!")
+            conn.close()
 
     # here we need to send the ratio
     ## the equation for the ratio is 
